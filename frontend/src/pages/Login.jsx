@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useAppContext } from "../context/AppContext";
+import toast from "react-hot-toast";
 
 const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -10,32 +11,45 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // =========================
-  //  Handle Submit (Login / Signup)
-  // =========================
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
-      let endpoint = isLogin ? "/api/user/login" : "/api/user/signup";
+      if (isLogin) {
+        const { data } = await axios.post("/api/images/login", {
+          email,
+          password,
+        });
 
-      const body = isLogin ? { email, password } : { name, email, password };
+        if (data.success && data.token) {
+          localStorage.setItem("userToken", data.token);
+          setUserToken(data.token);
 
-      const { data } = await axios.post(endpoint, body);
-
-      const token = data?.token;
-
-      if (token) {
-        localStorage.setItem("userToken", token);
-        setUserToken(token);
-
-        navigate("/profile");
+          toast.success("Login successful!");
+          navigate("/");
+        } else {
+          toast.error(data.message || "Login failed!");
+        }
       } else {
-        alert("Something went wrong. Token not received.");
+        const { data } = await axios.post("/api/images/register", {
+          name,
+          email,
+          password,
+        });
+
+        if (data.success && data.token) {
+          localStorage.setItem("userToken", data.token);
+          setUserToken(data.token);
+
+          toast.success("Signup successful!");
+          navigate("/");
+        } else {
+          toast.error(data.message || "Signup failed!");
+        }
       }
-    } catch (err) {
-      console.error(err);
-      alert(isLogin ? "Login failed!" : "Signup failed!");
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message || "Something went wrong!");
     }
   };
 

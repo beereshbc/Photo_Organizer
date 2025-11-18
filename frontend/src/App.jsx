@@ -6,12 +6,23 @@ import Home from "./pages/Home";
 import Slideshow from "./pages/Slideshow";
 import Upload from "./pages/upload";
 import { useAppContext } from "./context/AppContext";
+import toast, { Toaster } from "react-hot-toast";
 
 const App = () => {
   const { userToken } = useAppContext();
   return (
     <div>
       <Navbar />
+      <Toaster
+        position="top-right"
+        reverseOrder={false}
+        toastOptions={{
+          style: {
+            background: "#363636",
+            color: "#fff",
+          },
+        }}
+      />
       <>
         {userToken ? (
           <Routes>

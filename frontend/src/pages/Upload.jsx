@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
-  ImagePlus,
   FolderOpen,
   Tag,
   Search,
@@ -10,10 +9,10 @@ import {
   Grid3X3,
   List,
   Download,
-  Share2,
   Eye,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAppContext } from "../context/AppContext";
 
 const Upload = () => {
   const [images, setImages] = useState([]);
@@ -28,9 +27,11 @@ const Upload = () => {
   ]);
   const [newTag, setNewTag] = useState("");
   const [editingImageId, setEditingImageId] = useState(null);
-  const [viewMode, setViewMode] = useState("grid"); // 'grid' or 'list'
+  const [viewMode, setViewMode] = useState("grid");
   const [filteredImages, setFilteredImages] = useState([]);
   const fileInputRef = useRef(null);
+
+  const { axios, userToken } = useAppContext(); // axios from context
 
   // Filter images based on search and tags
   useEffect(() => {
@@ -59,46 +60,62 @@ const Upload = () => {
     setFilteredImages(result);
   }, [images, searchTerm, selectedTags]);
 
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
-    const imgURLs = files.map((file) => ({
-      id: Date.now() + Math.random(),
-      name: file.name,
-      url: URL.createObjectURL(file),
-      tags: [],
-      uploadedAt: new Date().toISOString(),
-    }));
-    setImages((prev) => [...prev, ...imgURLs]);
-  };
+    if (!files.length) return;
 
-  const addTagToImage = (imageId, tag) => {
-    if (!tag.trim()) return;
+    try {
+      const formData = new FormData();
+      files.forEach((file) => formData.append("images", file));
 
-    const tagToAdd = tag.trim().toLowerCase();
-    setImages((prev) =>
-      prev.map((img) =>
-        img.id === imageId
-          ? { ...img, tags: [...new Set([...img.tags, tagToAdd])] }
-          : img
-      )
-    );
+      const res = await axios.post("/api/images/upload", formData, {
+        headers: { userToken },
+      });
 
-    // Add to available tags if not already there
-    if (!availableTags.some((t) => t.toLowerCase() === tagToAdd)) {
-      setAvailableTags((prev) => [...prev, tagToAdd]);
+      // Ensure uploaded is always an array
+      const uploaded = Array.isArray(res.data)
+        ? res.data
+        : res.data.uploaded || [];
+      setImages((prev) => [...prev, ...uploaded]);
+    } catch (error) {
+      console.error("Failed to upload images:", error);
     }
-
-    setNewTag("");
   };
 
-  const removeTagFromImage = (imageId, tagToRemove) => {
-    setImages((prev) =>
-      prev.map((img) =>
-        img.id === imageId
-          ? { ...img, tags: img.tags.filter((tag) => tag !== tagToRemove) }
-          : img
-      )
-    );
+  // Add tag to image using axios
+  const addTagToImage = async (imageId, tag) => {
+    if (!tag.trim()) return;
+    const tagToAdd = tag.trim().toLowerCase();
+
+    try {
+      const res = await axios.post(`api/images/${imageId}/tags`, {
+        tag: tagToAdd,
+      });
+      setImages((prev) =>
+        prev.map((img) => (img.id === imageId ? res.data : img))
+      );
+
+      if (!availableTags.includes(tagToAdd)) {
+        setAvailableTags((prev) => [...prev, tagToAdd]);
+      }
+      setNewTag("");
+    } catch (error) {
+      console.error("Failed to add tag:", error);
+    }
+  };
+
+  // Remove tag from image using axios
+  const removeTagFromImage = async (imageId, tagToRemove) => {
+    try {
+      const res = await axios.delete(`api/images/${imageId}/tags`, {
+        data: { tag: tagToRemove },
+      });
+      setImages((prev) =>
+        prev.map((img) => (img.id === imageId ? res.data : img))
+      );
+    } catch (error) {
+      console.error("Failed to remove tag:", error);
+    }
   };
 
   const handleAddNewTag = () => {

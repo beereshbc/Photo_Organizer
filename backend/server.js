@@ -1,34 +1,26 @@
 import express from "express";
 import cors from "cors";
-import mongoose from "mongoose";
-import imageRoutes from "./routes/imageRoutes.js";
-import dotenv from "dotenv";
-import { errorHandler } from "./middleware/errorMiddleware.js";
+import "dotenv/config";
+import connectDB from "./config/mongoDB.js";
+import connectCloudinary from "./config/cloudinary.js";
+import imageRouter from "./routes/imageRouter.js";
 
-dotenv.config();
 const app = express();
 
-app.use(express.json());
+app.use(express.json()); // Parses JSON requests
+app.use(express.urlencoded({ extended: true })); // Parses form data
+
 app.use(cors());
-
-// connect mongo
-mongoose
-  .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => console.log("MongoDB connected"))
-  .catch((err) => console.error("MongoDB connection error:", err));
-
-app.use("/api/images", imageRoutes);
+await connectDB();
+await connectCloudinary();
+app.use("/api/images", imageRouter);
 
 app.get("/", (req, res) => {
-  res.send("API is Working good (Photo-Organizer)");
+  res.send("Photo Organizer API is working");
 });
 
-app.use(errorHandler);
-
 const PORT = process.env.PORT || 5000;
+
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`Server is running on PORT ${PORT}`);
 });

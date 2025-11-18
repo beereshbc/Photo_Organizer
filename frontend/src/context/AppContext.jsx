@@ -5,13 +5,11 @@ import { useNavigate } from "react-router-dom";
 const AppContext = createContext();
 
 axios.defaults.baseURL = import.meta.env.VITE_BASE_URL;
-
 export const AppProvider = ({ children }) => {
   const navigate = useNavigate();
 
   const [userToken, setUserToken] = useState(
-    true
-    // localStorage.getItem("userToken") || ""
+    localStorage.getItem("userToken") || ""
   );
 
   const value = {
