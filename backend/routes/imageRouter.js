@@ -28,8 +28,12 @@ imageRouter.post("/:id/tags", addTag);
 imageRouter.delete("/:id/tags", removeTag);
 imageRouter.delete("/:id", deleteImage);
 
-imageRouter.post("/slideshows", authUser, createSlideshow); // create a slideshow
-imageRouter.get("/slideshows", authUser, getUserSlideshows); // get all user's slideshows
-imageRouter.delete("/slideshows/:id", authUser, deleteSlideshow); // delete a slideshow
-imageRouter.get("/slideshows/:id/embed", authUser, getEmbedCode);
+// Slideshow APIs
+imageRouter.post("/slideshows", authUser, createSlideshow); // create slideshow
+imageRouter.get("/slideshows", authUser, getUserSlideshows); // get user's slideshows
+imageRouter.delete("/slideshows/:id", authUser, deleteSlideshow); // delete slideshow
+
+// EMBED: public endpoint, no auth required
+imageRouter.get("/slideshows/:id/embed", getEmbedCode);
+
 export default imageRouter;

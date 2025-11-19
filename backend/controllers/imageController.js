@@ -271,9 +271,9 @@ export const getEmbedCode = async (req, res) => {
         .json({ success: false, message: "Slideshow not found" });
     }
 
-    // Embed script for local frontend
+    // Production-ready embed script (points to hosted frontend)
     const embedScript = `<div id="slideshow-${slideshow._id}" data-slideshow-id="${slideshow._id}"></div>
-<script src="http://localhost:5173/embed-slideshow.js"></script>`;
+<script src="https://photo-organizer-falcon.vercel.app/embed-slideshow.js"></script>`;
 
     return res.status(200).json({ success: true, embedScript });
   } catch (error) {
