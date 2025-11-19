@@ -7,26 +7,18 @@ import imageRouter from "./routes/imageRouter.js";
 
 const app = express();
 
-// Enable CORS for your frontend domain
-const allowedOrigins = [
-  "https://photo-organizer-falcon.vercel.app", // production frontend
-  "http://localhost:5173", // local dev frontend
-];
-
+// CORS FIX
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like Postman)
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      } else {
-        return callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true, // Allow cookies/authorization headers
+    origin: ["https://photo-organizer-falcon.vercel.app"],
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "token"],
+    credentials: true,
   })
 );
+
+// MUST ADD THIS FOR VERCEL
+app.options("*", cors());
 
 // Body parsers
 app.use(express.json());
