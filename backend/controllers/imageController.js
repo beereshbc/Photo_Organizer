@@ -7,6 +7,7 @@ import UserModel from "../models/userModel.js";
 import jwt from "jsonwebtoken";
 import { v2 as cloudinary } from "cloudinary";
 import { getAutoTags } from "../utils/runYolo.js";
+import SlideshowModel from "../models/SlideshowModel.js";
 
 const registerUser = async (req, res) => {
   try {
@@ -78,21 +79,21 @@ export const uploadImages = async (req, res) => {
     let uploadedImages = [];
 
     for (const file of imageFiles) {
-      // 1️⃣ Run YOLO on the LOCAL FILE from multer
+      // Run YOLO auto-tag detection
       const autoTags = await getAutoTags(file.path);
-      console.log("Detected Tags:", autoTags);
+      console.log("Final Auto Tags:", autoTags);
 
-      // 2️⃣ Upload to Cloudinary
+      // Upload to Cloudinary
       const upload = await cloudinary.uploader.upload(file.path, {
         folder: "user_images",
       });
 
-      // 3️⃣ Save to DB
+      // Save to MongoDB
       const imageData = await ImageModel.create({
         name: file.originalname,
         url: upload.secure_url,
         userId,
-        autoTags,
+        autoTags, // store detected tags
         birthData: {
           fileType: upload.format,
           size: upload.bytes,
@@ -104,7 +105,7 @@ export const uploadImages = async (req, res) => {
 
     return res.json({
       success: true,
-      message: "Images uploaded with auto-tags",
+      message: "Images uploaded successfully with auto-tags",
       images: uploadedImages,
     });
   } catch (error) {
@@ -181,6 +182,103 @@ export const deleteImage = async (req, res) => {
     return res.json({ success: true, message: "Image deleted" });
   } catch (error) {
     return res.json({ success: false, message: error.message });
+  }
+};
+
+export const createSlideshow = async (req, res) => {
+  const { name, images } = req.body;
+  const userId = req.userId; // assuming auth middleware sets req.user
+
+  if (!name || images.length === 0) {
+    return res.status(400).json({ success: false, message: "Invalid data" });
+  }
+
+  try {
+    const newSlideshow = new SlideshowModel({
+      name,
+      images,
+      imageCount: images.length,
+      createdBy: userId,
+    });
+
+    await newSlideshow.save();
+
+    return res
+      .status(201)
+      .json({ success: true, message: "Slideshow saved successfully" });
+  } catch (error) {
+    console.error("Error creating slideshow:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+export const getUserSlideshows = async (req, res) => {
+  const userId = req.userId; // assuming your auth middleware sets req.userId
+
+  try {
+    // Find slideshows created by the user
+    const slideshows = await SlideshowModel.find({ createdBy: userId })
+      .populate({
+        path: "images", // populate the 'images' field
+        model: "Image", // using the Image model
+        select: "name url -_id", // select only name and url, exclude _id
+      })
+      .sort({ createdAt: -1 }); // optional: latest first
+
+    return res.status(200).json({ success: true, slideshows });
+  } catch (error) {
+    console.error("Error fetching slideshows:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// Delete a slideshow
+export const deleteSlideshow = async (req, res) => {
+  const slideshowId = req.params.id;
+  const userId = req.userId;
+
+  try {
+    const slideshow = await SlideshowModel.findOne({
+      _id: slideshowId,
+      createdBy: userId,
+    });
+    if (!slideshow)
+      return res
+        .status(404)
+        .json({ success: false, message: "Slideshow not found" });
+
+    await slideshow.deleteOne();
+    return res
+      .status(200)
+      .json({ success: true, message: "Slideshow deleted" });
+  } catch (error) {
+    console.error("Error deleting slideshow:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+export const getEmbedCode = async (req, res) => {
+  const slideshowId = req.params.id;
+
+  try {
+    const slideshow = await SlideshowModel.findById(slideshowId).populate(
+      "images"
+    );
+
+    if (!slideshow) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Slideshow not found" });
+    }
+
+    // Embed script for local frontend
+    const embedScript = `<div id="slideshow-${slideshow._id}" data-slideshow-id="${slideshow._id}"></div>
+<script src="http://localhost:5173/embed-slideshow.js"></script>`;
+
+    return res.status(200).json({ success: true, embedScript });
+  } catch (error) {
+    console.error("Error generating embed code:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };
 

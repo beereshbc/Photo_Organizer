@@ -11,8 +11,10 @@ import {
   ArrowRight,
   ChevronDown,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const Home = () => {
+  const navigate = useNavigate();
   const features = [
     {
       icon: <Tag className="w-6 h-6" />,
@@ -95,21 +97,13 @@ const Home = () => {
             transition={{ delay: 0.7 }}
           >
             <motion.button
+              onClick={() => navigate("/upload")}
               className="px-8 py-4 bg-black text-white rounded-xl font-semibold flex items-center gap-3 hover:bg-gray-800 transition-colors"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
               Get Started
               <ArrowRight className="w-4 h-4" />
-            </motion.button>
-
-            <motion.button
-              className="px-8 py-4 border border-gray-300 rounded-xl font-semibold flex items-center gap-3 hover:bg-gray-50 transition-colors"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Watch Demo
-              <Play className="w-4 h-4" />
             </motion.button>
           </motion.div>
         </motion.div>
@@ -122,6 +116,10 @@ const Home = () => {
           className="relative mt-16 md:mt-0"
         >
           <div className="relative">
+            <div
+              id="slideshow-691dc0bdcea09857a8d2b8d2"
+              data-slideshow-id="691dc0bdcea09857a8d2b8d2"
+            ></div>
             <motion.div
               className="w-80 h-96 md:w-96 md:h-[480px] bg-gray-50 rounded-3xl shadow-sm overflow-hidden border border-gray-200"
               whileHover={{ y: -10 }}
@@ -284,6 +282,7 @@ const Home = () => {
               management tools
             </p>
             <motion.button
+              onClick={() => navigate("/upload")}
               className="px-8 py-4 bg-black text-white rounded-xl font-semibold flex items-center gap-3 hover:bg-gray-800 transition-colors mx-auto"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}

@@ -2,10 +2,10 @@ import { spawn } from "child_process";
 import path from "path";
 
 export const getAutoTags = (localImagePath) => {
-  return new Promise((resolve, reject) => {
-    const pythonScript = path.join(process.cwd(), "python", "yolo_detector.py");
+  return new Promise((resolve) => {
+    const pyPath = path.join(process.cwd(), "python", "yolo_detector.py");
 
-    const py = spawn("python", [pythonScript, localImagePath]);
+    const py = spawn("python", [pyPath, localImagePath]);
 
     let output = "";
 
@@ -19,10 +19,16 @@ export const getAutoTags = (localImagePath) => {
 
     py.on("close", () => {
       try {
-        const labels = JSON.parse(output);
-        resolve(labels);
+        // Extract ONLY the JSON line (starts with '[')
+        const clean = output
+          .split("\n")
+          .find((line) => line.trim().startsWith("["));
+
+        const tags = clean ? JSON.parse(clean) : [];
+        resolve(tags);
       } catch (err) {
-        resolve([]); // if YOLO fails — return empty tags
+        console.log("YOLO PARSE ERROR:", err);
+        resolve([]);
       }
     });
   });
