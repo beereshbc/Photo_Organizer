@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { toast } from "react-hot-toast";
 import { useAppContext } from "../context/AppContext";
-import { Trash2, Code, X, ChevronLeft, ChevronRight, Copy } from "lucide-react";
+import { Trash2, Code, X, ChevronLeft, ChevronRight } from "lucide-react";
 
 const Slideshow = () => {
   const [slideshows, setSlideshows] = useState([]);
@@ -9,8 +9,8 @@ const Slideshow = () => {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [embedCode, setEmbedCode] = useState("");
   const { axios, userToken } = useAppContext();
+  const autoSlideRef = useRef();
 
-  // Fetch all slideshows
   const fetchSlideshows = async () => {
     try {
       const res = await axios.get("/api/images/slideshows", {
@@ -18,7 +18,6 @@ const Slideshow = () => {
       });
       if (res.data.success) setSlideshows(res.data.slideshows);
     } catch (error) {
-      console.error(error);
       toast.error("Failed to fetch slideshows");
     }
   };
@@ -28,43 +27,32 @@ const Slideshow = () => {
   }, []);
 
   // Delete slideshow
-  const deleteSlideshowById = async (id) => {
+  const deleteSlideshowById = async (slideshowId) => {
     if (!window.confirm("Are you sure you want to delete this slideshow?"))
       return;
     try {
-      const res = await axios.delete(`/api/images/slideshows/${id}`, {
+      const res = await axios.delete(`/api/images/slideshows/${slideshowId}`, {
         headers: { token: userToken },
       });
       if (res.data.success) {
-        toast.success("Slideshow deleted!");
-        setSlideshows(slideshows.filter((s) => s._id !== id));
-        if (currentSlideshow?._id === id) setCurrentSlideshow(null);
+        toast.success("Slideshow deleted successfully!");
+        setSlideshows(slideshows.filter((s) => s._id !== slideshowId));
+        if (currentSlideshow?._id === slideshowId) setCurrentSlideshow(null);
       }
     } catch (error) {
-      console.error(error);
       toast.error("Failed to delete slideshow");
     }
   };
 
-  // Fetch embed code from backend
-  const fetchEmbedCode = async (id) => {
-    try {
-      const res = await axios.get(`/api/images/slideshows/${id}/embed`);
-      if (res.data.success) {
-        setEmbedCode(res.data.embedScript);
-        toast.success("Embed code ready!");
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to fetch embed code");
-    }
+  // Embed code generation
+  const generateEmbedCode = (slide) => {
+    const code = `<div id="slideshow-${slide._id}"></div>\n<script src="https://your-domain.com/embed-slideshow.js" data-slideshow-id="${slide._id}"></script>`;
+    setEmbedCode(code);
   };
 
   const copyEmbedCode = () => {
-    if (embedCode) {
-      navigator.clipboard.writeText(embedCode);
-      toast.success("Embed code copied!");
-    }
+    navigator.clipboard.writeText(embedCode);
+    toast.success("Embed code copied to clipboard!");
   };
 
   // Slideshow navigation
@@ -78,38 +66,43 @@ const Slideshow = () => {
     setCurrentSlideIndex((prev) =>
       prev === 0 ? currentSlideshow.images.length - 1 : prev - 1
     );
-
   const closeSlideshow = () => {
     setCurrentSlideshow(null);
     setCurrentSlideIndex(0);
     setEmbedCode("");
+    clearInterval(autoSlideRef.current);
   };
 
-  return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <h2 className="text-3xl font-bold mb-6">Your Slideshows</h2>
+  // Auto-scroll slideshow
+  useEffect(() => {
+    if (currentSlideshow) {
+      autoSlideRef.current = setInterval(nextSlide, 3000); // 3s per slide
+    }
+    return () => clearInterval(autoSlideRef.current);
+  }, [currentSlideshow]);
 
-      {/* Slideshows grid */}
+  return (
+    <div className="p-6 bg-white min-h-screen">
+      <h2 className="text-3xl font-bold mb-6 text-gray-800">Your Slideshows</h2>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
         {slideshows.map((slide) => (
           <div
             key={slide._id}
-            className="relative border rounded-lg shadow hover:shadow-lg transition p-4"
+            className="relative border border-gray-200 rounded-xl shadow hover:shadow-lg transition p-4 cursor-pointer bg-white"
           >
-            <div className="absolute top-2 right-2 flex gap-2 z-10">
-              <button
-                onClick={() => fetchEmbedCode(slide._id)}
-                title="Embed"
-                className="text-blue-500 hover:text-blue-700"
-              >
-                <Code size={20} />
-              </button>
+            <div className="absolute top-2 right-2 z-10 flex gap-2">
               <button
                 onClick={() => deleteSlideshowById(slide._id)}
-                title="Delete"
-                className="text-red-500 hover:text-red-700"
+                className="p-1 text-red-500 hover:text-red-700 bg-white rounded-full border border-gray-200 shadow"
               >
-                <Trash2 size={20} />
+                <Trash2 size={18} />
+              </button>
+              <button
+                onClick={() => generateEmbedCode(slide)}
+                className="p-1 text-blue-500 hover:text-blue-700 bg-white rounded-full border border-gray-200 shadow"
+              >
+                <Code size={18} />
               </button>
             </div>
 
@@ -118,109 +111,83 @@ const Slideshow = () => {
                 setCurrentSlideshow(slide);
                 setCurrentSlideIndex(0);
               }}
-              className="cursor-pointer"
             >
               {slide.images[0] ? (
                 <img
                   src={slide.images[0].url}
                   alt={slide.name}
-                  className="w-full h-40 object-cover rounded-md mb-2"
+                  className="w-full h-44 object-cover rounded-lg mb-3 border border-gray-100 shadow-sm"
                 />
               ) : (
-                <div className="w-full h-40 flex items-center justify-center bg-gray-200 rounded-md mb-2">
+                <div className="w-full h-44 flex items-center justify-center bg-gray-100 rounded-lg mb-3 text-gray-400">
                   No Image
                 </div>
               )}
-              <h4 className="font-semibold text-lg">{slide.name}</h4>
+              <h4 className="font-semibold text-lg text-gray-800">
+                {slide.name}
+              </h4>
               <p className="text-sm text-gray-500">
                 {slide.imageCount} image{slide.imageCount > 1 && "s"}
               </p>
-              {slide.tags?.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {slide.tags.map((tag, i) => (
-                    <span
-                      key={i}
-                      className="text-xs bg-gray-200 px-2 py-1 rounded"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Slideshow modal */}
       {currentSlideshow && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-          <div className="relative bg-white rounded-lg shadow-lg p-4 max-w-3xl w-full">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="relative bg-white rounded-2xl shadow-xl p-6 max-w-4xl w-full">
+            {/* Close button */}
             <button
+              className="absolute top-4 right-4 text-gray-600 hover:text-gray-900"
               onClick={closeSlideshow}
-              className="absolute top-2 right-2 text-gray-700 hover:text-gray-900"
             >
               <X size={24} />
             </button>
-            <div className="absolute top-2 left-2 flex gap-2">
-              <button
-                onClick={() => fetchEmbedCode(currentSlideshow._id)}
-                className="text-blue-500 hover:text-blue-700"
-                title="Embed"
-              >
-                <Code size={20} />
-              </button>
-              <button
-                onClick={() => deleteSlideshowById(currentSlideshow._id)}
-                className="text-red-500 hover:text-red-700"
-                title="Delete"
-              >
-                <Trash2 size={20} />
-              </button>
-            </div>
 
-            <h3 className="text-2xl font-semibold mb-4">
+            {/* Navigation buttons */}
+            <button
+              onClick={prevSlide}
+              className="absolute top-1/2 left-4 -translate-y-1/2 bg-white p-2 rounded-full border border-gray-200 shadow hover:bg-gray-50"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <button
+              onClick={nextSlide}
+              className="absolute top-1/2 right-4 -translate-y-1/2 bg-white p-2 rounded-full border border-gray-200 shadow hover:bg-gray-50"
+            >
+              <ChevronRight size={20} />
+            </button>
+
+            <h3 className="text-2xl font-semibold mb-4 text-gray-800">
               {currentSlideshow.name} ({currentSlideshow.imageCount} images)
             </h3>
 
             <div className="flex items-center justify-center">
-              <button
-                onClick={prevSlide}
-                className="px-4 py-2 bg-gray-200 rounded-l hover:bg-gray-300"
-              >
-                <ChevronLeft size={20} />
-              </button>
               <img
                 src={currentSlideshow.images[currentSlideIndex].url}
                 alt={`Slide ${currentSlideIndex + 1}`}
-                className="max-h-96 mx-4 object-contain"
+                className="max-h-[500px] w-full object-contain rounded-lg border border-gray-200 shadow"
               />
-              <button
-                onClick={nextSlide}
-                className="px-4 py-2 bg-gray-200 rounded-r hover:bg-gray-300"
-              >
-                <ChevronRight size={20} />
-              </button>
             </div>
-
-            <p className="text-center mt-2 text-gray-600">
+            <p className="text-center mt-2 text-gray-500">
               {currentSlideIndex + 1} / {currentSlideshow.images.length}
             </p>
 
             {/* Embed code */}
             {embedCode && (
-              <div className="mt-4 p-2 bg-gray-100 rounded">
-                <p className="font-semibold mb-1">Embed Code:</p>
+              <div className="mt-4 p-3 bg-gray-100 rounded-lg border border-gray-200">
+                <p className="font-semibold mb-1 text-gray-700">Embed Code:</p>
                 <textarea
                   readOnly
-                  className="w-full h-24 p-2 border rounded"
+                  className="w-full h-24 p-2 border border-gray-300 rounded text-gray-700"
                   value={embedCode}
                 />
                 <button
                   onClick={copyEmbedCode}
-                  className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center gap-2"
+                  className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
                 >
-                  <Copy size={16} /> Copy Embed Code
+                  Copy Embed Code
                 </button>
               </div>
             )}
