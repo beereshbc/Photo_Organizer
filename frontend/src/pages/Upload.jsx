@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppContext } from "../context/AppContext";
+import { error } from "console";
 
 const Upload = () => {
   const [selectedImages, setSelectedImages] = useState([]);
@@ -113,7 +114,7 @@ const Upload = () => {
         fetchUserImages();
       }
     } catch (err) {
-      toast.error("Upload failed");
+      toast.error("Upload failed", error);
     } finally {
       setUploading(false);
     }
