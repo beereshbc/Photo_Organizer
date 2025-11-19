@@ -4,9 +4,9 @@ import Navbar from "./components/Navbar";
 import { Route, Routes } from "react-router-dom";
 import Home from "./pages/Home";
 import Slideshow from "./pages/Slideshow";
-import Upload from "./pages/upload";
 import { useAppContext } from "./context/AppContext";
 import toast, { Toaster } from "react-hot-toast";
+import Upload from "./pages/Upload";
 
 const App = () => {
   const { userToken } = useAppContext();
