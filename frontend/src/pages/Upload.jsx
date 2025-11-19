@@ -1,458 +1,674 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import { toast } from "react-hot-toast";
 import {
-  FolderOpen,
-  Tag,
-  Search,
+  UploadCloud,
   X,
+  Loader2,
   Plus,
+  Search,
   Filter,
-  Grid3X3,
-  List,
-  Download,
-  Eye,
+  CheckSquare,
+  Square,
+  Tags,
+  Calendar,
+  Image as ImageIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppContext } from "../context/AppContext";
 
 const Upload = () => {
-  const [images, setImages] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedTags, setSelectedTags] = useState([]);
-  const [availableTags, setAvailableTags] = useState([
-    "Family",
-    "Vacation",
-    "Nature",
-    "Portrait",
-    "Event",
-  ]);
-  const [newTag, setNewTag] = useState("");
-  const [editingImageId, setEditingImageId] = useState(null);
-  const [viewMode, setViewMode] = useState("grid");
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [userImages, setUserImages] = useState([]);
+  const [tagInputs, setTagInputs] = useState({});
+  const [uploading, setUploading] = useState(false);
+  const [bulkTagInput, setBulkTagInput] = useState("");
+  const [selectedImageIds, setSelectedImageIds] = useState(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
   const [filteredImages, setFilteredImages] = useState([]);
-  const fileInputRef = useRef(null);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [filters, setFilters] = useState({
+    tags: [],
+    dateFrom: "",
+    dateTo: "",
+  });
 
-  const { axios, userToken } = useAppContext(); // axios from context
+  const { axios, userToken } = useAppContext();
 
-  // Filter images based on search and tags
+  // ---------------------------
+  // Fetch User Images
+  // ---------------------------
+  const fetchUserImages = async () => {
+    try {
+      const res = await axios.get("/api/images", {
+        headers: { token: userToken },
+      });
+
+      if (res.data.success) {
+        setUserImages(res.data.images);
+        setFilteredImages(res.data.images);
+      }
+    } catch (error) {
+      toast.error("Failed to load images");
+    }
+  };
+
   useEffect(() => {
-    let result = images;
+    fetchUserImages();
+  }, []);
 
-    if (searchTerm) {
-      result = result.filter(
-        (img) =>
-          img.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          img.tags.some((tag) =>
-            tag.toLowerCase().includes(searchTerm.toLowerCase())
-          )
-      );
+  // ---------------------------
+  // Select Images for Upload
+  // ---------------------------
+  const handleSelectImages = (e) => {
+    const files = Array.from(e.target.files).map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+      id: Math.random().toString(36).substr(2, 9), // Temporary ID for preview
+    }));
+    setSelectedImages(files);
+  };
+
+  // ---------------------------
+  // Upload
+  // ---------------------------
+  const handleUpload = async () => {
+    if (selectedImages.length === 0) {
+      toast.error("No images selected");
+      return;
     }
 
-    if (selectedTags.length > 0) {
-      result = result.filter((img) =>
-        selectedTags.every((selectedTag) =>
-          img.tags.some(
-            (tag) => tag.toLowerCase() === selectedTag.toLowerCase()
-          )
-        )
-      );
-    }
-
-    setFilteredImages(result);
-  }, [images, searchTerm, selectedTags]);
-
-  const handleImageUpload = async (e) => {
-    const files = Array.from(e.target.files);
-    if (!files.length) return;
+    setUploading(true);
 
     try {
       const formData = new FormData();
-      files.forEach((file) => formData.append("images", file));
+      selectedImages.forEach((img) => formData.append("images", img.file));
 
       const res = await axios.post("/api/images/upload", formData, {
-        headers: { userToken },
+        headers: { token: userToken },
       });
 
-      // Ensure uploaded is always an array
-      const uploaded = Array.isArray(res.data)
-        ? res.data
-        : res.data.uploaded || [];
-      setImages((prev) => [...prev, ...uploaded]);
-    } catch (error) {
-      console.error("Failed to upload images:", error);
-    }
-  };
-
-  // Add tag to image using axios
-  const addTagToImage = async (imageId, tag) => {
-    if (!tag.trim()) return;
-    const tagToAdd = tag.trim().toLowerCase();
-
-    try {
-      const res = await axios.post(`api/images/${imageId}/tags`, {
-        tag: tagToAdd,
-      });
-      setImages((prev) =>
-        prev.map((img) => (img.id === imageId ? res.data : img))
-      );
-
-      if (!availableTags.includes(tagToAdd)) {
-        setAvailableTags((prev) => [...prev, tagToAdd]);
+      if (res.data.success) {
+        toast.success("Uploaded Successfully");
+        setSelectedImages([]);
+        fetchUserImages();
       }
-      setNewTag("");
-    } catch (error) {
-      console.error("Failed to add tag:", error);
+    } catch (err) {
+      toast.error("Upload failed");
+    } finally {
+      setUploading(false);
     }
   };
 
-  // Remove tag from image using axios
-  const removeTagFromImage = async (imageId, tagToRemove) => {
+  // ---------------------------
+  // Image Selection for Bulk Operations
+  // ---------------------------
+  const toggleImageSelection = (imageId) => {
+    const newSelected = new Set(selectedImageIds);
+    if (newSelected.has(imageId)) {
+      newSelected.delete(imageId);
+    } else {
+      newSelected.add(imageId);
+    }
+    setSelectedImageIds(newSelected);
+  };
+
+  const selectAllImages = () => {
+    if (selectedImageIds.size === filteredImages.length) {
+      setSelectedImageIds(new Set());
+    } else {
+      setSelectedImageIds(new Set(filteredImages.map((img) => img._id)));
+    }
+  };
+
+  // ---------------------------
+  // Bulk Tag Operations
+  // ---------------------------
+  const handleBulkAddTag = async () => {
+    if (selectedImageIds.size === 0) {
+      toast.error("No images selected");
+      return;
+    }
+
+    if (!bulkTagInput.trim()) {
+      toast.error("Tag cannot be empty");
+      return;
+    }
+
     try {
-      const res = await axios.delete(`api/images/${imageId}/tags`, {
-        data: { tag: tagToRemove },
-      });
-      setImages((prev) =>
-        prev.map((img) => (img.id === imageId ? res.data : img))
+      const promises = Array.from(selectedImageIds).map((imageId) =>
+        axios.post(
+          `/api/images/${imageId}/tags`,
+          { tag: bulkTagInput.trim() },
+          { headers: { token: userToken } }
+        )
       );
-    } catch (error) {
-      console.error("Failed to remove tag:", error);
+
+      await Promise.all(promises);
+      toast.success(`Tag added to ${selectedImageIds.size} images`);
+      setBulkTagInput("");
+      setSelectedImageIds(new Set());
+      fetchUserImages();
+    } catch {
+      toast.error("Failed to add tags to some images");
     }
   };
 
-  const handleAddNewTag = () => {
-    if (
-      newTag.trim() &&
-      !availableTags.some(
-        (tag) => tag.toLowerCase() === newTag.trim().toLowerCase()
-      )
-    ) {
-      setAvailableTags((prev) => [...prev, newTag.trim()]);
-      setNewTag("");
+  const handleBulkRemoveTag = async (tag) => {
+    if (selectedImageIds.size === 0) {
+      toast.error("No images selected");
+      return;
+    }
+
+    try {
+      const promises = Array.from(selectedImageIds).map((imageId) =>
+        axios.delete(`/api/images/${imageId}/tags`, {
+          headers: { token: userToken },
+          data: { tag },
+        })
+      );
+
+      await Promise.all(promises);
+      toast.success(`Tag removed from ${selectedImageIds.size} images`);
+      setSelectedImageIds(new Set());
+      fetchUserImages();
+    } catch {
+      toast.error("Failed to remove tags from some images");
     }
   };
 
-  const toggleTagFilter = (tag) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
+  // ---------------------------
+  // Individual Tag Operations
+  // ---------------------------
+  const handleAddTag = async (imgId) => {
+    const tag = tagInputs[imgId];
+
+    if (!tag || !tag.trim()) {
+      toast.error("Tag cannot be empty");
+      return;
+    }
+
+    try {
+      const res = await axios.post(
+        `/api/images/${imgId}/tags`,
+        { tag },
+        { headers: { token: userToken } }
+      );
+
+      if (res.data.success) {
+        toast.success("Tag Added");
+        setTagInputs({ ...tagInputs, [imgId]: "" });
+        fetchUserImages();
+      }
+    } catch {
+      toast.error("Failed to add tag");
+    }
   };
 
-  const clearAllFilters = () => {
-    setSearchTerm("");
-    setSelectedTags([]);
+  const handleRemoveTag = async (imgId, tag) => {
+    try {
+      const res = await axios.delete(`/api/images/${imgId}/tags`, {
+        headers: { token: userToken },
+        data: { tag },
+      });
+
+      if (res.data.success) {
+        toast.success("Tag Removed");
+        fetchUserImages();
+      }
+    } catch {
+      toast.error("Failed to remove tag");
+    }
   };
 
-  const triggerFileInput = () => {
-    fileInputRef.current?.click();
+  // ---------------------------
+  // Search and Filter
+  // ---------------------------
+  useEffect(() => {
+    let results = userImages;
+
+    // Text search
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      results = results.filter(
+        (img) =>
+          img.tags.some((tag) => tag.toLowerCase().includes(query)) ||
+          img.filename?.toLowerCase().includes(query) ||
+          img._id.includes(query)
+      );
+    }
+
+    // Date filter
+    if (filters.dateFrom) {
+      results = results.filter(
+        (img) => new Date(img.createdAt) >= new Date(filters.dateFrom)
+      );
+    }
+
+    if (filters.dateTo) {
+      results = results.filter(
+        (img) =>
+          new Date(img.createdAt) <= new Date(filters.dateTo + "T23:59:59")
+      );
+    }
+
+    setFilteredImages(results);
+  }, [searchQuery, filters, userImages]);
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setFilters({
+      tags: [],
+      dateFrom: "",
+      dateTo: "",
+    });
   };
 
-  const getFileType = (fileName) => {
-    return fileName.split(".").pop()?.toUpperCase() || "IMG";
+  // ---------------------------
+  // Animation Variants
+  // ---------------------------
+  const imageVariants = {
+    hidden: { opacity: 0, scale: 0.8 },
+    visible: { opacity: 1, scale: 1 },
+    exit: { opacity: 0, scale: 0.8 },
   };
 
   return (
-    <div className="min-h-screen bg-white text-black px-6 md:px-16 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-3">Photo Gallery</h1>
-        <p className="text-gray-600">
-          Upload, organize, and tag your photos for easy searching and
-          management
-        </p>
-      </div>
-
-      {/* Search and Filter Bar */}
-      <div className="bg-gray-50 rounded-2xl p-6 mb-8 border border-gray-200">
-        <div className="flex flex-col lg:flex-row gap-4 mb-6">
-          {/* Search Input */}
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search by filename or tags..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
-            />
-          </div>
-
-          {/* View Toggle */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => setViewMode("grid")}
-              className={`p-3 rounded-xl border ${
-                viewMode === "grid"
-                  ? "bg-black text-white border-black"
-                  : "bg-white text-gray-600 border-gray-300"
-              }`}
-            >
-              <Grid3X3 className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={`p-3 rounded-xl border ${
-                viewMode === "list"
-                  ? "bg-black text-white border-black"
-                  : "bg-white text-gray-600 border-gray-300"
-              }`}
-            >
-              <List className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Tags Filter */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-600" />
-            <span className="text-sm font-medium text-gray-700">
-              Filter by tags:
-            </span>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {availableTags.map((tag) => (
-              <button
-                key={tag}
-                onClick={() => toggleTagFilter(tag)}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  selectedTags.includes(tag)
-                    ? "bg-black text-white"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
-              >
-                {tag}
-              </button>
-            ))}
-
-            {/* Add New Tag */}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newTag}
-                onChange={(e) => setNewTag(e.target.value)}
-                placeholder="Add tag..."
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
-                onKeyPress={(e) => e.key === "Enter" && handleAddNewTag()}
-              />
-              <button
-                onClick={handleAddNewTag}
-                className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Active Filters */}
-          {(searchTerm || selectedTags.length > 0) && (
-            <div className="flex items-center gap-3 pt-2">
-              <span className="text-sm text-gray-600">Active filters:</span>
-              <div className="flex flex-wrap gap-2">
-                {searchTerm && (
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm flex items-center gap-1">
-                    Search: "{searchTerm}"
-                    <X
-                      className="w-3 h-3 cursor-pointer"
-                      onClick={() => setSearchTerm("")}
-                    />
-                  </span>
-                )}
-                {selectedTags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-sm flex items-center gap-1"
-                  >
-                    {tag}
-                    <X
-                      className="w-3 h-3 cursor-pointer"
-                      onClick={() => toggleTagFilter(tag)}
-                    />
-                  </span>
-                ))}
-              </div>
-              <button
-                onClick={clearAllFilters}
-                className="text-sm text-gray-600 hover:text-gray-800 underline"
-              >
-                Clear all
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Upload Box */}
-      <motion.div
-        whileHover={{ scale: 1.02 }}
-        className="cursor-pointer border-2 border-dashed border-gray-300 rounded-2xl p-12 flex flex-col items-center justify-center text-center bg-gray-50 mb-12 hover:border-gray-400 transition-colors"
-        onClick={triggerFileInput}
+    <div className="min-h-screen bg-gray-50 text-black p-6">
+      <motion.h1
+        className="text-3xl font-bold mb-6 text-gray-800"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
       >
-        <FolderOpen size={60} className="text-gray-400 mb-4" />
-        <p className="text-xl font-medium mb-2">Click to upload photos</p>
-        <p className="text-gray-500">
-          PNG, JPG, JPEG supported • Drag & drop supported
-        </p>
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleImageUpload}
-          multiple
-          accept="image/*"
-          className="hidden"
-        />
-      </motion.div>
+        Image Manager
+      </motion.h1>
 
-      {/* Gallery Header */}
-      {images.length > 0 && (
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h2 className="text-2xl font-semibold">
-              Your Photos ({filteredImages.length})
-            </h2>
-            {filteredImages.length !== images.length && (
-              <p className="text-gray-600 text-sm">
-                Filtered from {images.length} total photos
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Upload Section */}
+      <motion.div
+        className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-8"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+      >
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <UploadCloud className="text-blue-500" size={24} />
+          Upload Images
+        </h2>
 
-      {/* Gallery */}
-      <AnimatePresence>
-        {filteredImages.length > 0 ? (
-          <div
-            className={
-              viewMode === "grid"
-                ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-                : "space-y-4"
-            }
-          >
-            {filteredImages.map((img, index) => (
+        {/* Select Images */}
+        <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center hover:border-blue-400 transition-colors">
+          <label className="cursor-pointer flex flex-col items-center">
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <UploadCloud size={60} className="text-gray-400 mb-2" />
+            </motion.div>
+            <span className="text-gray-600 text-lg mb-1">
+              Click to select images
+            </span>
+            <span className="text-gray-400 text-sm">
+              Supports multiple selection
+            </span>
+            <input
+              type="file"
+              className="hidden"
+              multiple
+              accept="image/*"
+              onChange={handleSelectImages}
+            />
+          </label>
+
+          {/* Preview */}
+          <AnimatePresence>
+            {selectedImages.length > 0 && (
               <motion.div
-                key={img.id}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.3, delay: index * 0.1 }}
-                className={
-                  viewMode === "grid"
-                    ? "group relative bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow"
-                    : "flex gap-4 bg-white rounded-2xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow"
-                }
+                className="mt-6 w-full"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
               >
-                {/* Image */}
-                <div
-                  className={
-                    viewMode === "grid"
-                      ? "aspect-square overflow-hidden bg-gray-100"
-                      : "w-32 h-32 flex-shrink-0 overflow-hidden rounded-xl bg-gray-100"
-                  }
-                >
-                  <img
-                    src={img.url}
-                    alt={img.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                </div>
-
-                {/* Content */}
-                <div className={viewMode === "grid" ? "p-4" : "flex-1 min-w-0"}>
-                  {/* Header */}
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-medium text-gray-900 truncate">
-                        {img.name}
-                      </h3>
-                      <p className="text-sm text-gray-500">
-                        {getFileType(img.name)} •{" "}
-                        {new Date(img.uploadedAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex gap-1 ml-2">
-                      <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-                        <Download className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Tags */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Tag className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm font-medium text-gray-700">
-                        Tags
-                      </span>
-                    </div>
-
-                    {/* Existing Tags */}
-                    <div className="flex flex-wrap gap-2">
-                      {img.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-sm flex items-center gap-1 group/tag"
-                        >
-                          {tag}
-                          <X
-                            className="w-3 h-3 cursor-pointer opacity-0 group-hover/tag:opacity-100 transition-opacity"
-                            onClick={() => removeTagFromImage(img.id, tag)}
-                          />
-                        </span>
-                      ))}
-                    </div>
-
-                    {/* Add Tag Input */}
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Add tag..."
-                        value={editingImageId === img.id ? newTag : ""}
-                        onChange={(e) => setNewTag(e.target.value)}
-                        onFocus={() => setEditingImageId(img.id)}
-                        onKeyPress={(e) =>
-                          e.key === "Enter" && addTagToImage(img.id, newTag)
-                        }
-                        className="flex-1 px-3 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+                <h3 className="font-medium mb-3">
+                  Selected Images ({selectedImages.length})
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                  {selectedImages.map((img, index) => (
+                    <motion.div
+                      key={img.id}
+                      className="relative border p-2 rounded-lg shadow-sm bg-white"
+                      variants={imageVariants}
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      layout
+                    >
+                      <img
+                        src={img.preview}
+                        alt="preview"
+                        className="h-24 w-full object-cover rounded-md"
                       />
                       <button
-                        onClick={() => addTagToImage(img.id, newTag)}
-                        className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm font-medium hover:bg-gray-300 transition-colors"
+                        onClick={() => {
+                          setSelectedImages((prev) =>
+                            prev.filter((_, i) => i !== index)
+                          );
+                          URL.revokeObjectURL(img.preview);
+                        }}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-lg"
                       >
-                        <Plus className="w-4 h-4" />
+                        <X size={14} />
                       </button>
-                    </div>
-                  </div>
+                    </motion.div>
+                  ))}
                 </div>
               </motion.div>
-            ))}
-          </div>
-        ) : images.length > 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-12"
+            )}
+          </AnimatePresence>
+
+          {/* Upload Btn */}
+          <motion.button
+            onClick={handleUpload}
+            disabled={uploading || selectedImages.length === 0}
+            className={`mt-6 px-8 py-3 rounded-xl flex items-center gap-2 font-medium ${
+              uploading || selectedImages.length === 0
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700"
+            } text-white transition-colors`}
+            whileHover={
+              !uploading && selectedImages.length > 0 ? { scale: 1.05 } : {}
+            }
+            whileTap={
+              !uploading && selectedImages.length > 0 ? { scale: 0.95 } : {}
+            }
           >
-            <div className="text-gray-400 mb-4">
-              <Search className="w-12 h-12 mx-auto" />
+            {uploading ? (
+              <Loader2 className="animate-spin" size={20} />
+            ) : (
+              <UploadCloud size={20} />
+            )}
+            {uploading
+              ? "Uploading..."
+              : `Upload ${selectedImages.length} Images`}
+          </motion.button>
+        </div>
+      </motion.div>
+
+      {/* Search and Filter Section */}
+      <motion.div
+        className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-8"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mb-4">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <ImageIcon className="text-green-500" size={24} />
+            Your Images ({filteredImages.length})
+          </h2>
+
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            {/* Search */}
+            <div className="relative flex-1 md:flex-none">
+              <Search
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                size={20}
+              />
+              <input
+                type="text"
+                placeholder="Search by tags, filename..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No photos found
-            </h3>
-            <p className="text-gray-600">
-              Try adjusting your search or filter criteria
-            </p>
-            <button
-              onClick={clearAllFilters}
-              className="mt-4 text-black underline hover:text-gray-700"
+
+            {/* Filter Toggle */}
+            <motion.button
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
-              Clear all filters
-            </button>
+              <Filter size={18} />
+              Filter
+            </motion.button>
+          </div>
+        </div>
+
+        {/* Expanded Filters */}
+        <AnimatePresence>
+          {isFilterOpen && (
+            <motion.div
+              className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+            >
+              <div>
+                <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                  <Calendar size={16} />
+                  Date From
+                </label>
+                <input
+                  type="date"
+                  value={filters.dateFrom}
+                  onChange={(e) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      dateFrom: e.target.value,
+                    }))
+                  }
+                  className="w-full p-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                  <Calendar size={16} />
+                  Date To
+                </label>
+                <input
+                  type="date"
+                  value={filters.dateTo}
+                  onChange={(e) =>
+                    setFilters((prev) => ({ ...prev, dateTo: e.target.value }))
+                  }
+                  className="w-full p-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div className="flex items-end">
+                <button
+                  onClick={clearFilters}
+                  className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
+                >
+                  Clear Filters
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Bulk Operations */}
+        {selectedImageIds.size > 0 && (
+          <motion.div
+            className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+          >
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+              <span className="text-blue-700 font-medium">
+                {selectedImageIds.size} images selected
+              </span>
+
+              <div className="flex flex-col sm:flex-row gap-2 flex-1">
+                <input
+                  type="text"
+                  placeholder="Add tag to all selected..."
+                  value={bulkTagInput}
+                  onChange={(e) => setBulkTagInput(e.target.value)}
+                  className="px-3 py-1 border border-gray-300 rounded-lg flex-1 min-w-0"
+                />
+                <button
+                  onClick={handleBulkAddTag}
+                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Tags size={16} />
+                  Add Tag
+                </button>
+              </div>
+
+              <button
+                onClick={() => setSelectedImageIds(new Set())}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={20} />
+              </button>
+            </div>
           </motion.div>
-        ) : null}
+        )}
+      </motion.div>
+
+      {/* Images Grid */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={filteredImages.length}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          {filteredImages.map((img) => (
+            <motion.div
+              key={img._id}
+              className={`bg-white rounded-xl p-4 shadow-sm border-2 transition-all ${
+                selectedImageIds.has(img._id)
+                  ? "border-blue-500 ring-2 ring-blue-200"
+                  : "border-gray-200"
+              }`}
+              variants={imageVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              layout
+            >
+              {/* Selection Checkbox */}
+              <div className="flex justify-between items-start mb-3">
+                <div className="text-xs text-gray-500">
+                  {new Date(img.createdAt).toLocaleDateString()}
+                </div>
+                <button
+                  onClick={() => toggleImageSelection(img._id)}
+                  className="text-gray-400 hover:text-blue-500"
+                >
+                  {selectedImageIds.has(img._id) ? (
+                    <CheckSquare className="text-blue-500" size={20} />
+                  ) : (
+                    <Square size={20} />
+                  )}
+                </button>
+              </div>
+
+              {/* Image */}
+              <img
+                src={img.url}
+                alt={img.filename || "Uploaded image"}
+                className="w-full h-48 object-cover rounded-lg mb-3"
+              />
+
+              {/* Tags */}
+              <div className="mb-3">
+                <p className="font-medium mb-2 flex items-center gap-2 text-sm">
+                  <Tags size={16} />
+                  Tags:
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {img.tags.map((tag, i) => (
+                    <motion.span
+                      key={i}
+                      className="flex items-center bg-gray-100 px-2 py-1 rounded-lg text-sm"
+                      whileHover={{ scale: 1.05 }}
+                    >
+                      {tag}
+                      <X
+                        size={12}
+                        className="ml-1 cursor-pointer text-gray-500 hover:text-red-500"
+                        onClick={() => handleRemoveTag(img._id, tag)}
+                      />
+                    </motion.span>
+                  ))}
+                  {img.tags.length === 0 && (
+                    <span className="text-gray-400 text-sm">No tags</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Add Tag */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Add tag..."
+                  value={tagInputs[img._id] || ""}
+                  onChange={(e) =>
+                    setTagInputs({
+                      ...tagInputs,
+                      [img._id]: e.target.value,
+                    })
+                  }
+                  className="flex-1 border border-gray-300 px-3 py-1 rounded-lg text-sm"
+                  onKeyPress={(e) => e.key === "Enter" && handleAddTag(img._id)}
+                />
+                <motion.button
+                  onClick={() => handleAddTag(img._id)}
+                  className="bg-black text-white p-1 rounded-lg"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <Plus size={16} />
+                </motion.button>
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
       </AnimatePresence>
+
+      {/* Empty State */}
+      {filteredImages.length === 0 && (
+        <motion.div
+          className="text-center py-12"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <ImageIcon size={64} className="mx-auto text-gray-300 mb-4" />
+          <h3 className="text-xl font-medium text-gray-500 mb-2">
+            {userImages.length === 0
+              ? "No images uploaded yet"
+              : "No images found"}
+          </h3>
+          <p className="text-gray-400">
+            {userImages.length === 0
+              ? "Upload your first images to get started"
+              : "Try adjusting your search or filters"}
+          </p>
+        </motion.div>
+      )}
+
+      {/* Select All Button */}
+      {filteredImages.length > 0 && (
+        <motion.div
+          className="fixed bottom-6 right-6"
+          initial={{ opacity: 0, scale: 0 }}
+          animate={{ opacity: 1, scale: 1 }}
+        >
+          <button
+            onClick={selectAllImages}
+            className="bg-blue-600 text-white px-4 py-3 rounded-full shadow-lg hover:bg-blue-700 flex items-center gap-2"
+          >
+            {selectedImageIds.size === filteredImages.length ? (
+              <CheckSquare size={20} />
+            ) : (
+              <Square size={20} />
+            )}
+            Select All
+          </button>
+        </motion.div>
+      )}
     </div>
   );
 };

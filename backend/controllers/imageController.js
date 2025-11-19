@@ -1,10 +1,12 @@
 import ImageModel from "../models/ImageModel.js";
 import multer from "multer";
-import { v2 as cloudinary } from "cloudinary"; // Cloudinary config
+
 import validator from "validator";
 import bcrypt from "bcrypt";
 import UserModel from "../models/userModel.js";
 import jwt from "jsonwebtoken";
+import { v2 as cloudinary } from "cloudinary";
+import { getAutoTags } from "../utils/runYolo.js";
 
 const registerUser = async (req, res) => {
   try {
@@ -64,109 +66,122 @@ const loginUser = async (req, res) => {
   }
 };
 
-const uploadImages = async (req, res) => {
+export const uploadImages = async (req, res) => {
   try {
-    const userId = req.body;
-    const files = req.files;
-    if (!files || files.length === 0) {
-      return res.status(400).json({ message: "No images uploaded" });
+    const userId = req.userId;
+    const imageFiles = req.files;
+
+    if (!imageFiles || imageFiles.length === 0) {
+      return res.json({ success: false, message: "No images found" });
     }
 
-    const savedImages = [];
+    let uploadedImages = [];
 
-    // Upload and save each file individually
-    for (const file of files) {
-      // Upload to Cloudinary
-      const result = await cloudinary.uploader.upload(file.path, {
-        folder: "photo-gallery",
-        resource_type: "image",
+    for (const file of imageFiles) {
+      // 1️⃣ Run YOLO on the LOCAL FILE from multer
+      const autoTags = await getAutoTags(file.path);
+      console.log("Detected Tags:", autoTags);
+
+      // 2️⃣ Upload to Cloudinary
+      const upload = await cloudinary.uploader.upload(file.path, {
+        folder: "user_images",
       });
 
-      // Prepare image document
-      const imageData = {
+      // 3️⃣ Save to DB
+      const imageData = await ImageModel.create({
         name: file.originalname,
-        url: result.secure_url,
+        url: upload.secure_url,
+        userId,
+        autoTags,
         birthData: {
-          uploadedAt: new Date(),
-          fileType: file.mimetype,
-          size: file.size,
+          fileType: upload.format,
+          size: upload.bytes,
         },
-        userId: userId,
-      };
+      });
 
-      // Save single image to DB
-      const savedImage = await ImageModel.create(imageData);
-      savedImages.push(savedImage);
+      uploadedImages.push(imageData);
     }
 
-    res.status(201).json(savedImages);
+    return res.json({
+      success: true,
+      message: "Images uploaded with auto-tags",
+      images: uploadedImages,
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Image upload failed", error });
+    return res.json({ success: false, message: error.message });
   }
 };
 
-// Add tag to image
-const addTag = async (req, res) => {
-  const { id } = req.params;
-  const { tag } = req.body;
-
-  if (!tag) return res.status(400).json({ message: "Tag is required" });
-
+// Add Manual Tag
+export const addTag = async (req, res) => {
   try {
+    const { id } = req.params;
+    const { tag } = req.body;
+
+    if (!tag) return res.json({ success: false, message: "Tag required" });
+
     const image = await ImageModel.findById(id);
-    if (!image) return res.status(404).json({ message: "Image not found" });
+    if (!image) return res.json({ success: false, message: "Image not found" });
 
-    if (!image.tags.includes(tag.toLowerCase())) {
-      image.tags.push(tag.toLowerCase());
-      await image.save();
-    }
-
-    res.json(image);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to add tag", error });
-  }
-};
-
-// Remove tag from image
-const removeTag = async (req, res) => {
-  const { id } = req.params;
-  const { tag } = req.body;
-
-  if (!tag) return res.status(400).json({ message: "Tag is required" });
-
-  try {
-    const image = await ImageModel.findById(id);
-    if (!image) return res.status(404).json({ message: "Image not found" });
-
-    image.tags = image.tags.filter((t) => t !== tag.toLowerCase());
+    image.tags.push(tag.toLowerCase());
     await image.save();
 
-    res.json(image);
+    return res.json({ success: true, message: "Tag added", image });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to remove tag", error });
+    return res.json({ success: false, message: error.message });
   }
 };
 
-// Get all images
-const getAllImages = async (req, res) => {
+// Remove Tag
+export const removeTag = async (req, res) => {
   try {
-    const images = await ImageModel.find().sort({ "birthData.uploadedAt": -1 });
-    res.json(images);
+    const { id } = req.params;
+    const { tag } = req.body;
+
+    const image = await ImageModel.findById(id);
+    if (!image) return res.json({ success: false, message: "Image not found" });
+
+    image.tags = image.tags.filter((t) => t !== tag);
+    await image.save();
+
+    return res.json({ success: true, message: "Tag removed", image });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to fetch images", error });
+    return res.json({ success: false, message: error.message });
   }
 };
 
-export {
-  uploadImages,
-  addTag,
-  removeTag,
-  getAllImages,
-  multer,
-  registerUser,
-  loginUser,
+export const getAllImages = async (req, res) => {
+  try {
+    const userId = req.userId; // coming from authUser middleware
+
+    const images = await ImageModel.find({ userId }).sort({
+      createdAt: -1,
+    });
+
+    return res.json({ success: true, images });
+  } catch (error) {
+    return res.json({ success: false, message: error.message });
+  }
 };
+
+// Delete image
+export const deleteImage = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const image = await ImageModel.findById(id);
+    if (!image) return res.json({ success: false, message: "Image not found" });
+
+    // Optional Cloudinary delete
+    // await cloudinary.v2.uploader.destroy(image.public_id);
+
+    await ImageModel.findByIdAndDelete(id);
+
+    return res.json({ success: true, message: "Image deleted" });
+  } catch (error) {
+    return res.json({ success: false, message: error.message });
+  }
+};
+
+export { multer, registerUser, loginUser };
