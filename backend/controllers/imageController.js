@@ -88,6 +88,8 @@ export const uploadImages = async (req, res) => {
         folder: "user_images",
       });
 
+      console.log("cloudinary uploaded");
+
       // Save to MongoDB
       const imageData = await ImageModel.create({
         name: file.originalname,
