@@ -102,7 +102,7 @@ const Upload = () => {
     try {
       const formData = new FormData();
       selectedImages.forEach((img) => formData.append("images", img.file));
-
+      console.log(axios.post("/api/images/upload"));
       const res = await axios.post("/api/images/upload", formData, {
         headers: { token: userToken },
       });
@@ -111,6 +111,8 @@ const Upload = () => {
         toast.success("Uploaded Successfully");
         setSelectedImages([]);
         fetchUserImages();
+      } else {
+        toast.error(res.data.message);
       }
     } catch (err) {
       toast.error("Upload failed", err);

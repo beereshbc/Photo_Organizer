@@ -7,44 +7,55 @@ import imageRouter from "./routes/imageRouter.js";
 
 const app = express();
 
-// ✅ Correct CORS for Local + Vercel Frontend
-app.use(
-  cors({
-    origin: [
-      "http://localhost:5173",
-      "https://photo-organizer-falcon.vercel.app",
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "token", // IMPORTANT - your frontend sends this
-    ],
-    credentials: true,
-  })
-);
+// ✅ CORS Setup (Vercel-friendly)
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://photo-organizer-falcon.vercel.app",
+];
 
-// ✅ Preflight handler (Express 5 SAFE)
 app.use((req, res, next) => {
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
   }
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization",
+    "token"
+  );
+  res.header("Access-Control-Allow-Credentials", "true");
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200); // Preflight response
+  }
+
   next();
 });
 
-// Body parsers
+// ✅ Also use CORS package for safety
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization", "token"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  })
+);
+
+// ✅ Body parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// ✅ Connect DB and Cloudinary
 await connectDB();
 await connectCloudinary();
 
-// Routes
+// ✅ Routes
 app.use("/api/images", imageRouter);
 
 app.get("/", (req, res) => {
-  res.json({ message: "✅ Photo Organizer API is working" });
+  res.json({ message: "Photo Organizer API is working" });
 });
 
-// ✅ Vercel compatible export (NO app.listen)
 export default app;
