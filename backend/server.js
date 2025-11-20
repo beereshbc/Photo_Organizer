@@ -1,53 +1,55 @@
 import express from "express";
 import cors from "cors";
-import "dotenv/config";
-import connectDB from "./config/mongoDB.js";
-import connectCloudinary from "./config/cloudinary.js";
-import imageRouter from "./routes/imageRouter.js";
+// Assuming these are imported from your config files
+import { connectDB } from "./config/db.js";
+import { connectCloudinary } from "./config/cloudinary.js";
+import imageRouter from "./routes/imageRoutes.js";
 
 const app = express();
 
-// --- Configuration ---
-
-const allowedOrigins = [
-  "http://localhost:5173",
-  "https://photo-organizer-nine.vercel.app",
-  "https://photo-organizer-falcon.vercel.app",
-];
-
+// --- 1. Centralized CORS Configuration ---
 const corsOptions = {
-  origin: allowedOrigins,
-  credentials: true,
-  allowedHeaders: ["Content-Type", "Authorization", "token"],
+  origin: [
+    "https://photo-organizer-falcon.vercel.app",
+    "http://localhost:5173", // Suggestion: Keep localhost for local dev testing
+    "http://localhost:3000",
+  ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "token"],
+  credentials: true, // Essential for cookies/sessions
 };
 
-// --- Middleware Setup ---
-
-// ❌ REMOVE OR COMMENT OUT THIS LINE
-// This causes the PathError because "*" is not valid syntax in your router version.
-// app.options("*", cors(corsOptions));
-
-// ✅ KEEP THIS LINE
-// This handles all CORS requests, including the "OPTIONS" preflight checks automatically.
+// Apply CORS middleware ONCE with options
 app.use(cors(corsOptions));
 
-// ✅ Body parsers
+// Handle Preflight requests explicitly using the SAME options
+app.options("*", cors(corsOptions));
+
+// --- 2. Body Parsers ---
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ Connect DB and Cloudinary
-await connectDB();
-await connectCloudinary();
+// --- 3. Database Connections ---
+// Note: Top-level await works in Node 14+ modules.
+// Ensure your package.json has "type": "module"
+try {
+  await connectDB();
+  await connectCloudinary();
+  console.log("Database and Cloudinary connected");
+} catch (error) {
+  console.error("Connection failed:", error);
+}
 
-// --- Routes ---
-
-// ✅ API Route
+// --- 4. Routes ---
 app.use("/api/images", imageRouter);
 
-// ✅ Health Check / Root Endpoint
 app.get("/", (req, res) => {
-  res.json({ message: "Photo Organizer API is working" });
+  res.send("Photo Organizer API is working");
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server is running locally on PORT ${PORT}`);
 });
 
 export default app;
