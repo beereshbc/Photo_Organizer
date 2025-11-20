@@ -1,46 +1,40 @@
 import express from "express";
 import cors from "cors";
-// Assuming these are imported from your config files
-import { connectDB } from "./config/db.js";
-import { connectCloudinary } from "./config/cloudinary.js";
-import imageRouter from "./routes/imageRoutes.js";
+import "dotenv/config";
+import connectDB from "./config/mongoDB.js";
+import connectCloudinary from "./config/cloudinary.js";
+import imageRouter from "./routes/imageRouter.js";
 
 const app = express();
 
-// --- 1. Centralized CORS Configuration ---
-const corsOptions = {
-  origin: [
-    "https://photo-organizer-falcon.vercel.app",
-    "http://localhost:5173", // Suggestion: Keep localhost for local dev testing
-    "http://localhost:3000",
-  ],
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "token"],
-  credentials: true, // Essential for cookies/sessions
-};
+// ✅ Perfect CORS - no wildcard routes used
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://photo-organizer-falcon.vercel.app",
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
 
-// Apply CORS middleware ONCE with options
-app.use(cors(corsOptions));
+// ✅ Manual Preflight handler (SAFE)
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
-// Handle Preflight requests explicitly using the SAME options
-app.options("*", cors(corsOptions));
-
-// --- 2. Body Parsers ---
+// Body parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- 3. Database Connections ---
-// Note: Top-level await works in Node 14+ modules.
-// Ensure your package.json has "type": "module"
-try {
-  await connectDB();
-  await connectCloudinary();
-  console.log("Database and Cloudinary connected");
-} catch (error) {
-  console.error("Connection failed:", error);
-}
+await connectDB();
+await connectCloudinary();
 
-// --- 4. Routes ---
 app.use("/api/images", imageRouter);
 
 app.get("/", (req, res) => {
@@ -49,7 +43,7 @@ app.get("/", (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Server is running locally on PORT ${PORT}`);
+  console.log(`Server is running on PORT ${PORT}`);
 });
 
 export default app;
