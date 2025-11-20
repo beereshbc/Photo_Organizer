@@ -7,7 +7,7 @@ import imageRouter from "./routes/imageRouter.js";
 
 const app = express();
 
-// ✅ Perfect CORS - no wildcard routes used
+// ✅ Correct CORS for Local + Vercel Frontend
 app.use(
   cors({
     origin: [
@@ -15,12 +15,16 @@ app.use(
       "https://photo-organizer-falcon.vercel.app",
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "token", // IMPORTANT - your frontend sends this
+    ],
     credentials: true,
   })
 );
 
-// ✅ Manual Preflight handler (SAFE)
+// ✅ Preflight handler (Express 5 SAFE)
 app.use((req, res, next) => {
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
@@ -35,15 +39,12 @@ app.use(express.urlencoded({ extended: true }));
 await connectDB();
 await connectCloudinary();
 
+// Routes
 app.use("/api/images", imageRouter);
 
 app.get("/", (req, res) => {
-  res.send("Photo Organizer API is working");
+  res.json({ message: "✅ Photo Organizer API is working" });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server is running on PORT ${PORT}`);
-});
-
+// ✅ Vercel compatible export (NO app.listen)
 export default app;
