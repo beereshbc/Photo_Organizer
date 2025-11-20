@@ -1,9 +1,12 @@
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import os from "os";
 
-// Ensure uploads folder exists
-const uploadPath = path.resolve("uploads");
+// Use /tmp for serverless (Vercel, AWS Lambda)
+const uploadPath = path.join(os.tmpdir(), "uploads");
+
+// Ensure folder exists
 if (!fs.existsSync(uploadPath)) {
   fs.mkdirSync(uploadPath, { recursive: true });
 }

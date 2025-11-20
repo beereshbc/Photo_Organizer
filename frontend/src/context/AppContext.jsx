@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 const AppContext = createContext();
 
 axios.defaults.baseURL = import.meta.env.VITE_BASE_URL;
+axios.defaults.withCredentials = false;
 export const AppProvider = ({ children }) => {
   const navigate = useNavigate();
 
