@@ -6,7 +6,7 @@ import Home from "./pages/Home";
 import Slideshow from "./pages/Slideshow";
 import { useAppContext } from "./context/AppContext";
 import toast, { Toaster } from "react-hot-toast";
-import Upload from "./pages/Upload";
+import UploadPage from "./pages/UploadPage.jsx";
 
 const App = () => {
   const { userToken } = useAppContext();
@@ -27,7 +27,7 @@ const App = () => {
         {userToken ? (
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/upload" element={<Upload />} />
+            <Route path="/upload" element={<UploadPage />} />
             <Route path="/slideshow" element={<Slideshow />} />
           </Routes>
         ) : (

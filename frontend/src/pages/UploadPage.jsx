@@ -26,7 +26,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppContext } from "../context/AppContext";
 
-const Upload = () => {
+const UploadPage = () => {
   const [selectedImages, setSelectedImages] = useState([]);
   const [userImages, setUserImages] = useState([]);
   const [tagInputs, setTagInputs] = useState({});
@@ -58,23 +58,36 @@ const Upload = () => {
   // Fetch User Images
   // ---------------------------
   const fetchUserImages = async () => {
+    if (!userToken) {
+      toast.error("User not authenticated");
+      return;
+    }
+    console.log(userToken);
+
     try {
-      const res = await axios.get("/api/images", {
-        headers: { token: userToken },
+      const res = await axios.get(`/api/images`, {
+        headers: {
+          Authorization: `Bearer ${userToken}`,
+        },
       });
 
       if (res.data.success) {
-        setUserImages(res.data.images);
-        setFilteredImages(res.data.images);
+        console.log(res.data);
+
+        setUserImages(res.data.images || []);
+        setFilteredImages(res.data.images || []);
       }
     } catch (error) {
+      console.error("Image fetch error:", error);
       toast.error("Failed to load images");
     }
   };
 
   useEffect(() => {
-    fetchUserImages();
-  }, []);
+    if (userToken) {
+      fetchUserImages();
+    }
+  }, [userToken]);
 
   // ---------------------------
   // Select Images for Upload
@@ -104,7 +117,10 @@ const Upload = () => {
       selectedImages.forEach((img) => formData.append("images", img.file));
       console.log(axios.post("/api/images/upload"));
       const res = await axios.post("/api/images/upload", formData, {
-        headers: { token: userToken },
+        headers: {
+          Authorization: `Bearer ${userToken}`,
+          // Do NOT manually set Content-Type for FormData
+        },
       });
 
       if (res.data.success) {
@@ -115,7 +131,8 @@ const Upload = () => {
         toast.error(res.data.message);
       }
     } catch (err) {
-      toast.error("Upload failed", err);
+      toast.error("Upload failed");
+      console.error(err);
     } finally {
       setUploading(false);
     }
@@ -189,7 +206,10 @@ const Upload = () => {
 
       // Replace with your actual slideshow save endpoint
       const res = await axios.post("/api/images/slideshows", slideshowData, {
-        headers: { token: userToken },
+        headers: {
+          Authorization: `Bearer ${userToken}`,
+          // Do NOT manually set Content-Type for FormData
+        },
       });
 
       if (res.data.success) {
@@ -234,17 +254,23 @@ const Upload = () => {
         axios.post(
           `/api/images/${imageId}/tags`,
           { tag: bulkTagInput.trim() },
-          { headers: { token: userToken } }
+          {
+            headers: {
+              Authorization: `Bearer ${userToken}`,
+            },
+          }
         )
       );
 
       await Promise.all(promises);
+
       toast.success(`Tag added to ${selectedImageIds.size} images`);
       setBulkTagInput("");
       setSelectedImageIds(new Set());
       fetchUserImages();
-    } catch {
+    } catch (error) {
       toast.error("Failed to add tags to some images");
+      console.error(error);
     }
   };
 
@@ -262,8 +288,12 @@ const Upload = () => {
     try {
       const res = await axios.post(
         `/api/images/${imgId}/tags`,
-        { tag },
-        { headers: { token: userToken } }
+        { tag: tag.trim() },
+        {
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+          },
+        }
       );
 
       if (res.data.success) {
@@ -271,15 +301,18 @@ const Upload = () => {
         setTagInputs({ ...tagInputs, [imgId]: "" });
         fetchUserImages();
       }
-    } catch {
+    } catch (error) {
       toast.error("Failed to add tag");
+      console.error(error);
     }
   };
 
   const handleRemoveTag = async (imgId, tag) => {
     try {
       const res = await axios.delete(`/api/images/${imgId}/tags`, {
-        headers: { token: userToken },
+        headers: {
+          Authorization: `Bearer ${userToken}`,
+        },
         data: { tag },
       });
 
@@ -287,8 +320,9 @@ const Upload = () => {
         toast.success("Tag Removed");
         fetchUserImages();
       }
-    } catch {
+    } catch (error) {
       toast.error("Failed to remove tag");
+      console.error(error);
     }
   };
 
@@ -1138,4 +1172,4 @@ const Upload = () => {
   );
 };
 
-export default Upload;
+export default UploadPage;

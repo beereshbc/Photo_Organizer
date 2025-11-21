@@ -71,6 +71,7 @@ export const uploadImages = async (req, res) => {
   try {
     const userId = req.userId;
     const imageFiles = req.files;
+    console.log("userId in upload : ", userId);
 
     if (!imageFiles || imageFiles.length === 0) {
       return res.json({ success: false, message: "No images found" });
@@ -156,7 +157,7 @@ export const removeTag = async (req, res) => {
 
 export const getAllImages = async (req, res) => {
   try {
-    const userId = req.userId; // coming from authUser middleware
+    const userId = req.userId;
 
     const images = await ImageModel.find({ userId }).sort({
       createdAt: -1,

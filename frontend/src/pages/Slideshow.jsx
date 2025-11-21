@@ -14,7 +14,9 @@ const Slideshow = () => {
   const fetchSlideshows = async () => {
     try {
       const res = await axios.get("/api/images/slideshows", {
-        headers: { token: userToken },
+        headers: {
+          Authorization: `Bearer ${userToken}`,
+        },
       });
       if (res.data.success) setSlideshows(res.data.slideshows);
     } catch (error) {
@@ -32,7 +34,9 @@ const Slideshow = () => {
       return;
     try {
       const res = await axios.delete(`/api/images/slideshows/${slideshowId}`, {
-        headers: { token: userToken },
+        headers: {
+          Authorization: `Bearer ${userToken}`,
+        },
       });
       if (res.data.success) {
         toast.success("Slideshow deleted successfully!");

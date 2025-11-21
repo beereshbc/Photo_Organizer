@@ -24,9 +24,9 @@ imageRouter.post("/register", registerUser);
 // Image APIs
 imageRouter.post("/upload", authUser, upload.array("images"), uploadImages);
 imageRouter.get("/", authUser, getAllImages);
-imageRouter.post("/:id/tags", addTag);
-imageRouter.delete("/:id/tags", removeTag);
-imageRouter.delete("/:id", deleteImage);
+imageRouter.post("/:id/tags", authUser, addTag);
+imageRouter.delete("/:id/tags", authUser, removeTag);
+imageRouter.delete("/:id", authUser, deleteImage);
 
 // Slideshow APIs
 imageRouter.post("/slideshows", authUser, createSlideshow); // create slideshow
