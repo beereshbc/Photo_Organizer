@@ -158,10 +158,12 @@ export const removeTag = async (req, res) => {
 export const getAllImages = async (req, res) => {
   try {
     const userId = req.userId;
+    console.log(userId);
 
     const images = await ImageModel.find({ userId }).sort({
       createdAt: -1,
     });
+    console.log(images);
 
     return res.json({ success: true, images });
   } catch (error) {

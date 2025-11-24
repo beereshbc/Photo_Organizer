@@ -58,25 +58,18 @@ const UploadPage = () => {
   // Fetch User Images
   // ---------------------------
   const fetchUserImages = async () => {
-    if (!userToken) {
-      toast.error("User not authenticated");
-      return;
-    }
-    console.log(userToken);
-
     try {
-      const res = await axios.get(`/api/images`, {
+      const res = await axios.get("/api/images/get", {
         headers: {
           Authorization: `Bearer ${userToken}`,
         },
       });
 
       if (res.data.success) {
-        console.log(res.data);
-
         setUserImages(res.data.images || []);
         setFilteredImages(res.data.images || []);
       }
+      console.log(res);
     } catch (error) {
       console.error("Image fetch error:", error);
       toast.error("Failed to load images");
@@ -84,10 +77,8 @@ const UploadPage = () => {
   };
 
   useEffect(() => {
-    if (userToken) {
-      fetchUserImages();
-    }
-  }, [userToken]);
+    fetchUserImages();
+  }, []);
 
   // ---------------------------
   // Select Images for Upload
@@ -115,11 +106,10 @@ const UploadPage = () => {
     try {
       const formData = new FormData();
       selectedImages.forEach((img) => formData.append("images", img.file));
-      console.log(axios.post("/api/images/upload"));
+
       const res = await axios.post("/api/images/upload", formData, {
         headers: {
           Authorization: `Bearer ${userToken}`,
-          // Do NOT manually set Content-Type for FormData
         },
       });
 
@@ -133,6 +123,12 @@ const UploadPage = () => {
     } catch (err) {
       toast.error("Upload failed");
       console.error(err);
+
+      // Log the specific response properties if available
+      if (err.response) {
+        console.error("Server Status:", err.response.status);
+        console.error("Server Data:", err.response.data);
+      }
     } finally {
       setUploading(false);
     }

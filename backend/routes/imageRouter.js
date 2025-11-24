@@ -22,8 +22,9 @@ imageRouter.post("/login", loginUser);
 imageRouter.post("/register", registerUser);
 
 // Image APIs
+imageRouter.get("/get", authUser, getAllImages);
 imageRouter.post("/upload", authUser, upload.array("images"), uploadImages);
-imageRouter.get("/", authUser, getAllImages);
+
 imageRouter.post("/:id/tags", authUser, addTag);
 imageRouter.delete("/:id/tags", authUser, removeTag);
 imageRouter.delete("/:id", authUser, deleteImage);

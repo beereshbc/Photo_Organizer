@@ -1,3 +1,4 @@
+// uploadMiddleware.js
 import multer from "multer";
 
 const storage = multer.diskStorage({
@@ -6,6 +7,12 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  // Add file size limits to prevent large uploads and trigger a MulterError
+  limits: {
+    fileSize: 10 * 1024 * 1024, // Example: 10 MB limit per file
+  },
+});
 
 export default upload;
