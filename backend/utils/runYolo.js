@@ -5,7 +5,10 @@ export const getAutoTags = (localImagePath) => {
   return new Promise((resolve) => {
     const pyPath = path.join(process.cwd(), "python", "yolo_detector.py");
 
-    const py = spawn("python", [pyPath, localImagePath]);
+    // Force Linux-compatible Python execution (Render)
+    const py = spawn("python3", [pyPath, localImagePath], {
+      env: process.env,
+    });
 
     let output = "";
 
@@ -17,17 +20,21 @@ export const getAutoTags = (localImagePath) => {
       console.error("YOLO ERROR:", data.toString());
     });
 
+    py.on("error", (err) => {
+      console.error("PYTHON SPAWN FAILED:", err.message);
+      resolve([]);
+    });
+
     py.on("close", () => {
       try {
-        // Extract ONLY the JSON line (starts with '[')
         const clean = output
           .split("\n")
-          .find((line) => line.trim().startsWith("["));
+          .find((line) => line.trim().startsWith("[")); // Only JSON
 
         const tags = clean ? JSON.parse(clean) : [];
         resolve(tags);
       } catch (err) {
-        console.log("YOLO PARSE ERROR:", err);
+        console.error("YOLO PARSE ERROR:", err.message);
         resolve([]);
       }
     });
