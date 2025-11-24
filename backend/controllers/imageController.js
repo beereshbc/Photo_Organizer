@@ -71,7 +71,6 @@ export const uploadImages = async (req, res) => {
   try {
     const userId = req.userId;
     const imageFiles = req.files;
-    console.log("userId in upload : ", userId);
 
     if (!imageFiles || imageFiles.length === 0) {
       return res.json({ success: false, message: "No images found" });
@@ -163,7 +162,6 @@ export const getAllImages = async (req, res) => {
     const images = await ImageModel.find({ userId }).sort({
       createdAt: -1,
     });
-    console.log(images);
 
     return res.json({ success: true, images });
   } catch (error) {
@@ -284,6 +282,24 @@ export const getEmbedCode = async (req, res) => {
   } catch (error) {
     console.error("Error generating embed code:", error);
     return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+export const getUserProfile = async (req, res) => {
+  try {
+    const userId = req.userId; // from auth middleware
+
+    const user = await UserModel.findById(userId).select("-password");
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

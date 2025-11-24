@@ -12,6 +12,7 @@ import {
   getUserSlideshows,
   deleteSlideshow,
   getEmbedCode,
+  getUserProfile,
 } from "../controllers/imageController.js";
 import authUser from "../middleware/authUser.js";
 
@@ -23,6 +24,7 @@ imageRouter.post("/register", registerUser);
 
 // Image APIs
 imageRouter.get("/get", authUser, getAllImages);
+imageRouter.get("/profile", authUser, getUserProfile);
 imageRouter.post("/upload", authUser, upload.array("images"), uploadImages);
 
 imageRouter.post("/:id/tags", authUser, addTag);

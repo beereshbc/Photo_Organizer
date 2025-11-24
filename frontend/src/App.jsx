@@ -7,6 +7,7 @@ import Slideshow from "./pages/Slideshow";
 import { useAppContext } from "./context/AppContext";
 import toast, { Toaster } from "react-hot-toast";
 import UploadPage from "./pages/UploadPage.jsx";
+import Profile from "./pages/Profile.jsx";
 
 const App = () => {
   const { userToken } = useAppContext();
@@ -29,6 +30,7 @@ const App = () => {
             <Route path="/" element={<Home />} />
             <Route path="/upload" element={<UploadPage />} />
             <Route path="/slideshow" element={<Slideshow />} />
+            <Route path="/profile" element={<Profile />} />
           </Routes>
         ) : (
           <Login />

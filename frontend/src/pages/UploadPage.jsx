@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "react-hot-toast";
 import {
   UploadCloud,
@@ -16,12 +16,10 @@ import {
   HardDrive,
   Clock,
   Hash,
-  Play,
+  Film,
   Save,
   ChevronLeft,
   ChevronRight,
-  Film, // Replaced Slideshow with Film
-  SquareStack, // Alternative icon for slideshow
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppContext } from "../context/AppContext";
@@ -31,6 +29,7 @@ const UploadPage = () => {
   const [userImages, setUserImages] = useState([]);
   const [tagInputs, setTagInputs] = useState({});
   const [uploading, setUploading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // --- ADDED LOADING STATE ---
   const [bulkTagInput, setBulkTagInput] = useState("");
   const [selectedImageIds, setSelectedImageIds] = useState(new Set());
   const [searchQuery, setSearchQuery] = useState("");
@@ -55,9 +54,10 @@ const UploadPage = () => {
   const { axios, userToken } = useAppContext();
 
   // ---------------------------
-  // Fetch User Images
+  // Fetch User Images (Wrapped in useCallback)
   // ---------------------------
-  const fetchUserImages = async () => {
+  const fetchUserImages = useCallback(async () => {
+    setIsLoading(true); // Set loading true before fetch
     try {
       const res = await axios.get("/api/images/get", {
         headers: {
@@ -69,19 +69,20 @@ const UploadPage = () => {
         setUserImages(res.data.images || []);
         setFilteredImages(res.data.images || []);
       }
-      console.log(res);
     } catch (error) {
       console.error("Image fetch error:", error);
       toast.error("Failed to load images");
+    } finally {
+      setIsLoading(false); // Set loading false after fetch completes
     }
-  };
+  }, [axios, userToken]); // Dependencies for useCallback
 
   useEffect(() => {
     fetchUserImages();
-  }, []);
+  }, [fetchUserImages]); // Pass the memoized function
 
   // ---------------------------
-  // Select Images for Upload
+  // Select Images for Upload (Logic remains correct)
   // ---------------------------
   const handleSelectImages = (e) => {
     const files = Array.from(e.target.files).map((file) => ({
@@ -93,7 +94,7 @@ const UploadPage = () => {
   };
 
   // ---------------------------
-  // Upload
+  // Upload (Logic remains correct)
   // ---------------------------
   const handleUpload = async () => {
     if (selectedImages.length === 0) {
@@ -124,7 +125,6 @@ const UploadPage = () => {
       toast.error("Upload failed");
       console.error(err);
 
-      // Log the specific response properties if available
       if (err.response) {
         console.error("Server Status:", err.response.status);
         console.error("Server Data:", err.response.data);
@@ -135,7 +135,7 @@ const UploadPage = () => {
   };
 
   // ---------------------------
-  // Image Selection for Bulk Operations
+  // Image Selection for Bulk Operations (Logic remains correct)
   // ---------------------------
   const toggleImageSelection = (imageId) => {
     const newSelected = new Set(selectedImageIds);
@@ -156,7 +156,7 @@ const UploadPage = () => {
   };
 
   // ---------------------------
-  // Slideshow Functions
+  // Slideshow Functions (Logic remains correct)
   // ---------------------------
   const handleCreateSlideshow = () => {
     if (selectedImageIds.size === 0) {
@@ -204,7 +204,6 @@ const UploadPage = () => {
       const res = await axios.post("/api/images/slideshows", slideshowData, {
         headers: {
           Authorization: `Bearer ${userToken}`,
-          // Do NOT manually set Content-Type for FormData
         },
       });
 
@@ -232,7 +231,7 @@ const UploadPage = () => {
   };
 
   // ---------------------------
-  // Bulk Tag Operations
+  // Bulk Tag Operations (Logic remains correct)
   // ---------------------------
   const handleBulkAddTag = async () => {
     if (selectedImageIds.size === 0) {
@@ -271,7 +270,7 @@ const UploadPage = () => {
   };
 
   // ---------------------------
-  // Individual Tag Operations
+  // Individual Tag Operations (Logic remains correct)
   // ---------------------------
   const handleAddTag = async (imgId) => {
     const tag = tagInputs[imgId];
@@ -323,7 +322,7 @@ const UploadPage = () => {
   };
 
   // ---------------------------
-  // Search and Filter
+  // Search and Filter (Logic remains correct)
   // ---------------------------
   useEffect(() => {
     let results = userImages;
@@ -446,7 +445,7 @@ const UploadPage = () => {
   };
 
   // ---------------------------
-  // Animation Variants
+  // Animation Variants (Logic remains correct)
   // ---------------------------
   const imageVariants = {
     hidden: { opacity: 0, scale: 0.8 },
@@ -744,7 +743,7 @@ const UploadPage = () => {
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
             >
-              {/* Manual Tags Filter */}
+              {/* Manual Tags Filter (Content remains correct) */}
               <div>
                 <label className="block text-sm font-medium mb-2 flex items-center gap-2">
                   <Tags size={16} />
@@ -775,7 +774,7 @@ const UploadPage = () => {
                 </div>
               </div>
 
-              {/* Auto Tags Filter */}
+              {/* Auto Tags Filter (Content remains correct) */}
               <div>
                 <label className="block text-sm font-medium mb-2 flex items-center gap-2">
                   <Hash size={16} />
@@ -806,7 +805,7 @@ const UploadPage = () => {
                 </div>
               </div>
 
-              {/* File Type and Size Filters */}
+              {/* File Type and Size Filters (Content remains correct) */}
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-2 flex items-center gap-2">
@@ -866,7 +865,7 @@ const UploadPage = () => {
                 </div>
               </div>
 
-              {/* Date Filters */}
+              {/* Date Filters (Content remains correct) */}
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-2 flex items-center gap-2">
@@ -962,178 +961,198 @@ const UploadPage = () => {
         )}
       </motion.div>
 
-      {/* Images Grid */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={filteredImages.length}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          {filteredImages.map((img) => (
+      {/* --- CONDITIONAL MAIN CONTENT --- */}
+      {isLoading ? (
+        <div className="flex justify-center items-center py-16">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            className="flex items-center space-x-3 text-indigo-600 bg-white p-6 rounded-xl shadow-lg border border-indigo-100"
+          >
+            <Loader2 className="w-6 h-6 animate-spin" />
+            <p className="text-xl font-semibold">Loading your images...</p>
+          </motion.div>
+        </div>
+      ) : (
+        <>
+          {/* Images Grid */}
+          <AnimatePresence mode="wait">
             <motion.div
-              key={img._id}
-              className={`bg-white rounded-xl p-4 shadow-sm border-2 transition-all ${
-                selectedImageIds.has(img._id)
-                  ? "border-blue-500 ring-2 ring-blue-200"
-                  : "border-gray-200"
-              }`}
-              variants={imageVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              layout
+              key={filteredImages.length}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
             >
-              {/* Selection Checkbox and Metadata */}
-              <div className="flex justify-between items-start mb-3">
-                <div className="text-xs text-gray-500 space-y-1">
-                  <div className="flex items-center gap-1">
-                    <Clock size={12} />
-                    {new Date(
-                      img.birthData?.uploadedAt || img.createdAt
-                    ).toLocaleDateString()}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <FileText size={12} />
-                    {img.birthData?.fileType || "Unknown"}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <HardDrive size={12} />
-                    {formatFileSize(img.birthData?.size)}
-                  </div>
-                </div>
-                <button
-                  onClick={() => toggleImageSelection(img._id)}
-                  className="text-gray-400 hover:text-blue-500"
+              {filteredImages.map((img) => (
+                <motion.div
+                  key={img._id}
+                  className={`bg-white rounded-xl p-4 shadow-sm border-2 transition-all ${
+                    selectedImageIds.has(img._id)
+                      ? "border-blue-500 ring-2 ring-blue-200"
+                      : "border-gray-200"
+                  }`}
+                  variants={imageVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  layout
                 >
-                  {selectedImageIds.has(img._id) ? (
-                    <CheckSquare className="text-blue-500" size={20} />
-                  ) : (
-                    <Square size={20} />
-                  )}
-                </button>
-              </div>
-
-              {/* Image */}
-              <img
-                src={img.url}
-                alt={img.name || "Uploaded image"}
-                className="w-full h-48 object-cover rounded-lg mb-3"
-              />
-
-              {/* File Name */}
-              <div className="mb-3">
-                <p className="font-medium text-sm text-gray-700 truncate">
-                  {img.name}
-                </p>
-              </div>
-
-              {/* Manual Tags */}
-              <div className="mb-3">
-                <p className="font-medium mb-2 flex items-center gap-2 text-sm">
-                  <Tags size={16} />
-                  Manual Tags:
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {img.tags.map((tag, i) => (
-                    <motion.span
-                      key={i}
-                      className="flex items-center bg-gray-100 px-2 py-1 rounded-lg text-sm"
-                      whileHover={{ scale: 1.05 }}
+                  {/* Selection Checkbox and Metadata */}
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="text-xs text-gray-500 space-y-1">
+                      <div className="flex items-center gap-1">
+                        <Clock size={12} />
+                        {new Date(
+                          img.birthData?.uploadedAt || img.createdAt
+                        ).toLocaleDateString()}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <FileText size={12} />
+                        {img.birthData?.fileType || "Unknown"}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <HardDrive size={12} />
+                        {formatFileSize(img.birthData?.size)}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => toggleImageSelection(img._id)}
+                      className="text-gray-400 hover:text-blue-500"
                     >
-                      {tag}
-                      <X
-                        size={12}
-                        className="ml-1 cursor-pointer text-gray-500 hover:text-red-500"
-                        onClick={() => handleRemoveTag(img._id, tag)}
-                      />
-                    </motion.span>
-                  ))}
-                  {img.tags.length === 0 && (
-                    <span className="text-gray-400 text-sm">
-                      No manual tags
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Auto Tags */}
-              {img.autoTags && img.autoTags.length > 0 && (
-                <div className="mb-3">
-                  <p className="font-medium mb-2 flex items-center gap-2 text-sm">
-                    <Hash size={16} />
-                    Auto Tags:
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    {img.autoTags.map((tag, i) => (
-                      <motion.span
-                        key={i}
-                        className="flex items-center bg-blue-100 text-blue-800 px-2 py-1 rounded-lg text-sm"
-                        whileHover={{ scale: 1.05 }}
-                      >
-                        {tag}
-                      </motion.span>
-                    ))}
+                      {selectedImageIds.has(img._id) ? (
+                        <CheckSquare className="text-blue-500" size={20} />
+                      ) : (
+                        <Square size={20} />
+                      )}
+                    </button>
                   </div>
-                </div>
-              )}
 
-              {/* Add Tag */}
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="Add manual tag..."
-                  value={tagInputs[img._id] || ""}
-                  onChange={(e) =>
-                    setTagInputs({
-                      ...tagInputs,
-                      [img._id]: e.target.value,
-                    })
-                  }
-                  className="flex-1 border border-gray-300 px-3 py-1 rounded-lg text-sm"
-                  onKeyPress={(e) => e.key === "Enter" && handleAddTag(img._id)}
-                />
-                <motion.button
-                  onClick={() => handleAddTag(img._id)}
-                  className="bg-black text-white p-1 rounded-lg"
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                >
-                  <Plus size={16} />
-                </motion.button>
-              </div>
+                  {/* Image */}
+                  <img
+                    src={img.url}
+                    alt={img.name || "Uploaded image"}
+                    className="w-full h-48 object-cover rounded-lg mb-3"
+                  />
+
+                  {/* File Name */}
+                  <div className="mb-3">
+                    <p className="font-medium text-sm text-gray-700 truncate">
+                      {img.name}
+                    </p>
+                  </div>
+
+                  {/* Manual Tags */}
+                  <div className="mb-3">
+                    <p className="font-medium mb-2 flex items-center gap-2 text-sm">
+                      <Tags size={16} />
+                      Manual Tags:
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {img.tags.map((tag, i) => (
+                        <motion.span
+                          key={i}
+                          className="flex items-center bg-gray-100 px-2 py-1 rounded-lg text-sm"
+                          whileHover={{ scale: 1.05 }}
+                        >
+                          {tag}
+                          <X
+                            size={12}
+                            className="ml-1 cursor-pointer text-gray-500 hover:text-red-500"
+                            onClick={() => handleRemoveTag(img._id, tag)}
+                          />
+                        </motion.span>
+                      ))}
+                      {img.tags.length === 0 && (
+                        <span className="text-gray-400 text-sm">
+                          No manual tags
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Auto Tags */}
+                  {img.autoTags && img.autoTags.length > 0 && (
+                    <div className="mb-3">
+                      <p className="font-medium mb-2 flex items-center gap-2 text-sm">
+                        <Hash size={16} />
+                        Auto Tags:
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {img.autoTags.map((tag, i) => (
+                          <motion.span
+                            key={i}
+                            className="flex items-center bg-blue-100 text-blue-800 px-2 py-1 rounded-lg text-sm"
+                            whileHover={{ scale: 1.05 }}
+                          >
+                            {tag}
+                          </motion.span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Add Tag */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Add manual tag..."
+                      value={tagInputs[img._id] || ""}
+                      onChange={(e) =>
+                        setTagInputs({
+                          ...tagInputs,
+                          [img._id]: e.target.value,
+                        })
+                      }
+                      className="flex-1 border border-gray-300 px-3 py-1 rounded-lg text-sm"
+                      onKeyPress={(e) =>
+                        e.key === "Enter" && handleAddTag(img._id)
+                      }
+                    />
+                    <motion.button
+                      onClick={() => handleAddTag(img._id)}
+                      className="bg-black text-white p-1 rounded-lg"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                    >
+                      <Plus size={16} />
+                    </motion.button>
+                  </div>
+                </motion.div>
+              ))}
             </motion.div>
-          ))}
-        </motion.div>
-      </AnimatePresence>
+          </AnimatePresence>
 
-      {/* Empty State */}
-      {filteredImages.length === 0 && (
-        <motion.div
-          className="text-center py-12"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
-          <ImageIcon size={64} className="mx-auto text-gray-300 mb-4" />
-          <h3 className="text-xl font-medium text-gray-500 mb-2">
-            {userImages.length === 0
-              ? "No images uploaded yet"
-              : "No images found"}
-          </h3>
-          <p className="text-gray-400">
-            {userImages.length === 0
-              ? "Upload your first images to get started"
-              : "Try adjusting your search or filters"}
-          </p>
-        </motion.div>
+          {/* Empty State */}
+          {filteredImages.length === 0 && (
+            <motion.div
+              className="text-center py-12"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
+              <ImageIcon size={64} className="mx-auto text-gray-300 mb-4" />
+              <h3 className="text-xl font-medium text-gray-500 mb-2">
+                {userImages.length === 0
+                  ? "No images uploaded yet"
+                  : "No images found"}
+              </h3>
+              <p className="text-gray-400">
+                {userImages.length === 0
+                  ? "Upload your first images to get started"
+                  : "Try adjusting your search or filters"}
+              </p>
+            </motion.div>
+          )}
+        </>
       )}
+      {/* --- END CONDITIONAL MAIN CONTENT --- */}
 
-      {/* Select All Button */}
-      {filteredImages.length > 0 && (
+      {/* Select All Button (Fixed Floating Button) */}
+      {filteredImages.length > 0 && !isLoading && (
         <motion.div
-          className="fixed bottom-6 right-6 flex flex-col gap-3"
+          className="fixed bottom-6 right-6 flex flex-col gap-3 z-40"
           initial={{ opacity: 0, scale: 0 }}
           animate={{ opacity: 1, scale: 1 }}
         >
@@ -1160,7 +1179,7 @@ const UploadPage = () => {
             ) : (
               <Square size={20} />
             )}
-            Select All
+            {selectedImageIds.size === 0 ? "Select All" : "Deselect All"}
           </button>
         </motion.div>
       )}
